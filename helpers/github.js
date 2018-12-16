@@ -1,12 +1,13 @@
 const request = require("request");
 const config = require("../config.js");
 
-let getReposByUsername = searchTerm => {
+let getReposByUsername = (searchTerm, callback) => {
   // TODO - Use the request module to request repos for a specific
   // user from the github API
 
   // The options object has been provided to help you out,
   // but you'll have to fill in the URL
+  //https://developer.github.com/v3/
 
   let options = {
     url: `https://api.github.com/users/${searchTerm}/repos`,
@@ -15,21 +16,23 @@ let getReposByUsername = searchTerm => {
       Authorization: `token ${config.TOKEN}`
     }
   };
-
-  let callback = (err, response, body) => {
+  //github API returns json data, need to parse and send back to server
+  //https://www.npmjs.com/package/request custom HTTP header
+  request(options, (err, response, body) => {
     if (!err && response.statusCode === 200) {
-      let stars = body[stargazers_count];
-      console.log(
-        JSON.parse(stars),
-        "Successfully queried Github using helper!"
-      );
+      callback(null, JSON.parse(body));
+    } else if (err) {
+      callback(err, null);
     } else {
-      console.log(err, "ERROR");
-      console.log(response.statusCode, "ERR STATUScode");
-      console.log(JSON.parse(body), "body from helper");
+      callback(
+        {
+          message: "Non-200 response from github",
+          status: response.statusCode
+        },
+        null
+      );
     }
-  };
-  request(options, callback);
+  });
 };
 
 module.exports.getReposByUsername = getReposByUsername;

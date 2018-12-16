@@ -1,7 +1,7 @@
 const express = require("express");
 const bodyParser = require("body-parser");
 const db = require("../database");
-const getReposByUsername = require("../helpers/github.js");
+const getReposByUsername = require("../helpers/github.js").getReposByUsername;
 
 let app = express();
 
@@ -15,26 +15,66 @@ app.use(express.static(__dirname + "/../client/dist"));
 // path: repos
 // query string: ?foo=bar&coco=cream,
 
-app.post("/repos", function(req, res) {
+const transformApiData = array => {
+  console.log(array[0]);
+  return array.map(repo => {
+    return {
+      name: repo["full_name"],
+      url: repo["svn_url"],
+      stars: repo["stargazers_count"]
+    };
+  });
+};
+
+const transformDbData = array =>
+  array.map(repo => ({
+    name: repo.name,
+    url: repo.url,
+    stars: repo.stars
+  }));
+
+app.post("/repos", function (req, res) {
   // TODO - your code here!
   // This route should take the github username provided
   // and get the repo information from the github API, then
   // save the repo information in the database
   let searchTerm = req.body.term;
-  console.log(getReposByUsername["getReposByUsername"], "repo by username");
   // console.log(req.body.term, "req body term");
-  res.send("SUCCESS!");
 
-  getReposByUsername["getReposByUsername"](searchTerm);
+  getReposByUsername(searchTerm, (err, data) => {
+    if (err) {
+      res.status(500).send(JSON.stringify(err));
+    } else {
+      const apiData = transformApiData(data);
+      //TODO check number of repos from username
+      console.log(apiData.length, "Number of repos from API");
+
+      db.saveRepos(apiData, err => {
+        if (err) {
+          res.status(500).send(JSON.stringify(err));
+        } else {
+          res.send("SUCCESS!");
+        }
+      });
+    }
+  });
 });
 
-app.get("/repos", function(req, res) {
+//when client loads the page, server queries db to get top25 repos
+app.get("/repos", function (req, res) {
   // TODO - your code here!
   // This route should send back the top 25 repos
+  db.findTop25((err, data) => {
+    if (err) {
+      res.status(500).send(JSON.stringify(err));
+    } else {
+      res.send(JSON.stringify(transformDbData(data)));
+    }
+  });
 });
 
 let port = 1128;
 
-app.listen(port, function() {
+app.listen(port, function () {
   console.log(`listening on port ${port}`);
 });
